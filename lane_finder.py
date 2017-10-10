@@ -15,6 +15,21 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
+# Top down image transform coordinates and pixel to meter conversion constants.
+# Calculated from an undistorted 'test_images/straight_lines2.jpg'.
+pix2meters_x = 39/720.0
+pix2meters_y = 3.7/741.0
+src_pts = np.float32(
+        [[288,670],
+         [1029,670],
+         [669,438],
+         [613,438]])
+dst_pts = np.float32(
+        [[288,720],
+         [1029,720],
+         [1029,0],
+         [288,0]])
+
 def warpImage(img, src, dst):
     '''
     Method to return a warped image given frour pairs of corresponding points.
@@ -121,15 +136,22 @@ def visualizeDistortion(image, mtx, dist, fname, visualize=False):
     Method to save an example of pre and post image distortion correction.
     Adapted from: https://github.com/udacity/CarND-Camera-Calibration/blob/master/camera_calibration.ipynb
     '''
+    # undistort image
     img = cv2.imread(image)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     dst = cv2.undistort(img, mtx, dist, None, mtx)
+
+    # generate before and after plot
     f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
     ax1.imshow(img)
     ax1.set_title('Original Image', fontsize=30)
     ax2.imshow(dst)
     ax2.set_title('Undistorted Image', fontsize=30)
+
+    # save plot
     plt.savefig(fname)
+
+    # display to screen
     if visualize == True:
         plt.show()
 
@@ -149,7 +171,7 @@ def writeImage(fname, image):
     '''
     # convert to opencv BGR
     img = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    cv2.imwrite(fname, image)
+    cv2.imwrite(fname, img)
 
 def readWriteUndistort(fread, fsave, mtx, dist):
     '''
@@ -160,7 +182,11 @@ def readWriteUndistort(fread, fsave, mtx, dist):
     cv2.imwrite(fsave, image)
 
 def thresholdImage(image, visualize=False):
-
+    '''
+    Method to threshold the image using the combination of a threshold sobel x edge detection 
+    and a threshold color saturation image. Returns a binary image.
+    Adapted from Udacity lecture notes in Chapter 30 of Advanced Lane Finding.
+    '''
     # Convert to HLS color space and separate the S channel
     hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
     s_channel = hls[:,:,2]
@@ -206,23 +232,59 @@ def thresholdImage(image, visualize=False):
     return combined_binary
 
 def getBirdsEyeView(image):
-    src = np.float32(
-        [[252,680],
-         [1053,680],
-         [689,450],
-         [593,450]])
-    dst = np.float32(
-        [[252,720],
-         [1053,720],
-         [1053,450],
-         [252,450]])
-    M = cv2.getPerspectiveTransform(src, dst)
+    '''
+    Method to perform the top down perspective transform on the undistorted image.
+    '''
+    M = cv2.getPerspectiveTransform(src_pts, dst_pts)
     img_size = (image.shape[1], image.shape[0])
     warped = cv2.warpPerspective(image, M, img_size, flags=cv2.INTER_LINEAR)
     return warped
 
-def processImage(image, mtx, dist):
 
+def visualizeBirdsEye(fname, idx, thresh=False, visualize=False):
+    '''
+    Utility to visualize the birds eye perspective transform. Saves a plot of undistorted
+    image before and after warp as well as the raw undistorted image. Has options to show
+    threshold and display output.
+    '''
+    # load and undistort image from file
+    image = cv2.imread(fname)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    undst = cv2.undistort(image, mtx, dist, None, mtx)
+
+    # threshold the image if needed
+    tag = ''
+    if thresh is True:
+        undst = thresholdImage(undst)
+        undst = np.dstack((undst, undst, undst))*255
+        tag='_bin'
+
+    # draw the points used for the transform on the image
+    vector = np.array(src_pts, np.int32)
+    vector = vector.reshape((-1,1,2))
+    cv2.polylines(undst, [vector], True, [255, 0, 0])
+
+    # generate the visualization plot
+    f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
+    ax1.imshow(undst)
+    ax1.set_title('Undistorted image' + tag + ' with points drawn', fontsize=30)
+    write_name = 'output_images/'+str(idx)+'_undistort' + tag + '.jpg'
+    writeImage(write_name, undst)
+    bird_img = getBirdsEyeView(undst)
+    ax2.imshow(bird_img)
+    ax2.set_title('Top down image', fontsize=30)
+    plt.savefig('output_images/'+str(idx)+'_visualize_birds_eye' + tag + '.png')
+    write_name = 'output_images/'+str(idx)+'_birds_eye' + tag + '.jpg'
+    writeImage(write_name, bird_img)
+
+    # show the plot if requested
+    if visualize == True:
+        plt.show()
+
+def processImage(image, mtx, dist):
+    '''
+    The main processing pipeline. Call this for each image.
+    '''
     # Apply a distortion correction to raw images.
     undist_img = cv2.undistort(image, mtx, dist, None, mtx)
 
@@ -232,9 +294,9 @@ def processImage(image, mtx, dist):
     # Apply a perspective transform to rectify binary image ("birds-eye view").
     bird_img = getBirdsEyeView(bin_img)
 
-
-
     # Detect lane pixels and fit to find the lane boundary.
+    
+
     # Determine the curvature of the lane and vehicle position with respect to center.
     # Warp the detected lane boundaries back onto the original image.
     # Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
@@ -250,16 +312,11 @@ if mtx is 0:
     saveDistortion("dist_pickle.p", mtx, dist)
     visualizeDistortion(images[0], mtx, dist, "output_images/undistort.png", visualize=False)
 
-readWriteUndistort("test_images/straight_lines2.jpg", "straight_sample.png", mtx, dist)
-image = cv2.imread("straight_sample.png")
-bird_img = getBirdsEyeView(image)
-cv2.imshow('img',bird_img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-cv2.imwrite("straight_sample_birds_eye.png", bird_img)
-exit()
-
+# Process the test images
 dirs = os.listdir("test_images/")
-for filename in dirs:
+for idx, filename in enumerate(dirs):
+    # visualizeBirdsEye("test_images/" + filename, idx, thresh=True) # for visualization
     image = mpimg.imread("test_images/" + filename)
     final_image = processImage(image, mtx, dist)
+
+# Process the videos
