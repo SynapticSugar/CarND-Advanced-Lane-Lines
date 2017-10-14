@@ -8,7 +8,7 @@ The goals / steps of this project are the following:
 
 * Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
 * Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
+* Use color transforms, gradients, etc., to create a threshold binary image.
 * Apply a perspective transform to rectify binary image ("birds-eye view").
 * Detect lane pixels and fit to find the lane boundary.
 * Determine the curvature of the lane and vehicle position with respect to center.
@@ -23,7 +23,7 @@ The goals / steps of this project are the following:
 [image4]: ./output_images/1_visualize_birds_eye.png "Warp Example"
 [image5]: ./output_images/5_visualize_fit_lines.png "Fit Visual"
 [image6]: ./output_images/5_lane_lines.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
+[video1]: ./output_videos/project_video.mp4 "Video"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
@@ -32,12 +32,22 @@ The goals / steps of this project are the following:
 ---
 ### Submission Files
 
-* `lane_finder.py` contains the comeplete code base for this project
-
+* `writeup_report.md`
+* `lane_finder.py`
+* `/output_images/undistort.png`
+* `/output_images/7_undistort.jpg`
+* `/output_images/7_threshold.png`
+* `/output_images/1_visualize_birds_eye.png`
+* `/output_images/5_visualize_fit_lines.png`
+* `/output_images/5_lane_lines.jpg`
+* `/output_videos/project_video.mp4`
+* `/output_videos/challenge_video.mp4`
+* `/output_videos/harder_challenge_video.mp4`
+* `dist_pickel.p`
 
 ### Camera Calibration
 
-#### 1. Briefly state how you computed the camera matrix and distortion coefficients.Provide an example of a distortion corrected calibration image.
+#### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
 The code to perform the calibration is contained in a function called `getDistortion()` lines 78 through 124.
 
@@ -49,25 +59,25 @@ I then used the output `object_points` and `imgage_points` to compute the camera
 
 Once the camera matrix `mtx` and distortion parameters `dist` are known, they no longer need to be re-calculated and can be used repeatedly for the remainder of the pipeline.
 
-Additionally, the distortion paramters are saved to a pickle file `dist_pickle.p` and can simply be retrieved for each subsequent program run.  See code lines 702 to 707 in `lane_finder.py`.
+Additionally, the distortion parameters are saved to a pickle file `dist_pickle.p` and can simply be retrieved for each subsequent program run.  See code lines 702 to 707 in `lane_finder.py`.
 
 ### Pipeline (single images)
 
 #### 1. Provide an example of a distortion-corrected image.
 
-By calling `cv2.undistort()` with the saved `mtx` and `dist` paramters I create an undistorted image like below for each raw image read in by the pipeline.
+By calling `cv2.undistort()` with the saved `mtx` and `dist` parameters, I created an undistorted image, like the one below.
 
 ![alt text][image2]
 
-The undistortion is the first step of the `processImage()` pipeline in code lines 653 to 679 in `lane_finder.py`.
+The undistortion function is the first step of the `processImage()` pipeline in code lines 653 to 679 in `lane_finder.py`.
 
 #### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
 I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines 204 through 348 in `lane_finder.py`).
 
-The sobel x and y gradient, magnitude, and overall gradient direction we all combined to form a composite sobel image.  The saturation and hue from a HLS colorspace as well as the value channel from a HSV colorspace were combined to form a composite binary image.
+The sobel x and y gradient, magnitude, and overall gradient direction are all combined to form a composite sobel image.  The saturation and hue from a HLS colorspace as well as the value channel from a HSV colorspace were combined to form a composite binary image.
 
-These two composites were combined to form the final threshold image.  The biggest contributors to the threshold were the x sobel and saturation channel.  The HSV value played a role in allow the saturation's lower bound to be lowered without adding too much noise. This helped recover lines that were otherwise too hard to see on the road surface.
+These two composites were combined to form the final threshold image.  The biggest contributors to the threshold were the x sobel and saturation channel.  The HSV value played a role in allowing the saturation's lower bound to be lowered without adding too much noise. This helped recover lines that were otherwise too hard to see on the road surface.
 
 Here's an example of my output for this step for test image `test_images/test6.jpg`.
 
@@ -78,7 +88,7 @@ Here's an example of my output for this step for test image `test_images/test6.j
 The code for my perspective transform includes a class called `Perspective()` on line 18 
 and a function called `getBirdsEyeView()` on line 350 in `lane_finer.py`.
 
-The class holds the `src_pts` and `dst_pts` transformation verticies, pixels to world coordinate conversions, and a function to scale forward or back the 'top' of the source rectangle.  The `getBirdsEyeView()` function takes an image for input(`image`) and returns a warped image. The `src_pts` and `dst_pts` are used form the global `Perspective()` object.
+The class holds the `src_pts` and `dst_pts` transformation verticies, pixels to world meters coordinate conversions, and a function to scale forward or back the 'top' of the source rectangle.  The `getBirdsEyeView()` function takes an image for input(`image`) and returns a warped image. The `src_pts` and `dst_pts` are accessed from the global `Perspective()` object.
 
 The source points were hand picked from `test_images/straight_lines2.jpg` using the lane lines as a guide. Below is the input to the `Perspective()` class.
 ```python
@@ -88,7 +98,7 @@ src_pts = np.float32(
      [680,444],  # top right
      [603,444]]) # top left
 ```
-Two excerpts from the `Perspective()` class lines 40 to 45 and 57 to 58 illustrating how the calculations made.
+Two excerpts from the `Perspective()` class, lines 40 to 45 and 57 to 58, illustrating how the calculations are made.
 
 ```python
 def _calcDst(self):
@@ -113,7 +123,9 @@ This resulted in the following source and destination points:
 | 680.0, 444.0  | 1011.0. 0.0   |
 | 603.0, 444.0  | 270.0. 0.0    |
 
-I verified that my perspective transform was working as expected by drawing the `src_pts` and `dst_pts` points onto a test image and viewing the its warped counterpart to verify that the lines appear parallel in the warped image. Code lines 360 to 398.
+I verified that my perspective transform was working as expected by drawing the `src_pts` points on the undistorted image and the `dst_pts` points onto its warped counterpart to verify that the lines appear parallel in the warped image. Code lines 360 to 398.
+
+An example is below:
 
 ![alt text][image4]
 
@@ -121,7 +133,7 @@ I verified that my perspective transform was working as expected by drawing the 
 
 The lane lines were detected by calling the function `findLaneLines()` on lines 435 to 550 in `lane_finder.py`.  I chose the sliding window approach over the convolution method as it provided better results without too much extra work on the `project_video.mp4`.
 
-This function takes in the image, calculates a histogram of the bottom half of the image  and caluclates left and right maximum locations as starting points for the rest of the algorithm. It marches a window in steps for each lane upward through the thresholded image and calcualtes the average x pixel location to recenter the window.  The pixels in the windows are added to the left or right lane data set respectively.  A second order polynomial curve is then fit to each lane both in pixel space and world space.  These are all returned back from the function. I decided to perform the initial histogram fit at each step in the pipeline as it was more robust.
+This function takes in the image, calculates a histogram of the bottom half of the image to caluclate left and right maximum locations as starting points for the rest of the algorithm. It marches a window, in steps, for each lane upward, through the thresholded image, and calcualtes the average x pixel location to recenter the window.  The pixels in the windows are added to the left or right lane data set respectively.  A second order polynomial curve is then fit to each lane both in pixel space and world space.  These are all returned back from the function. I decided to perform the initial histogram fit at each step in the pipeline as it was more robust than using the previous frames windows as starting points.
 
 An example of a visualization of the `findLanesFunction()` is provided below.
 
@@ -137,8 +149,8 @@ To calculate curvature, the formula from the Udacity lecture notes in Chapter 36
 
 The overall center lane curvature was averaged from both left and right lanes curvature results.
 
-The center of the lane was calculated from evaluating the x location from each lane polynomial fit at the y location a the bottom of the image (pixel 720).
-The offset was converted to world coordinates using the x world scale factor `pvt.pix2meters_x` from the global `Perspective()` object `pvt`.
+The center of the lane was calculated from evaluating the x location from each lane polynomial fit at the y location at the bottom of the image (pixel 720).
+The vehicle offset was converted to world coordinates using the x world scale factor `pvt.pix2meters_x` from the global `Perspective()` object `pvt`.
 
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
@@ -161,13 +173,17 @@ Here's a [link to my video result](./output_videos/project_video.mp4)
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.
+Here I will talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.
 
 I implemented the pipeline step by step in the same order as the project goals using the material from the lecture notes.  
 
-I did encounter issues getting the threshold to work well on all of the test videos.  I found that successively adding utility functions for each type of the threshold like absSobelThresh(), magThresh, dirThreshold, saturationThreshold, valueThreshold, and hueThreshold allowed me to 'play' with many different combinations very easily until I found the right one.
+I did encounter issues getting the threshold to work well on all of the test videos.  I found that successively adding utility functions for each type of the threshold, such as absSobelThresh(), magThresh, dirThreshold, saturationThreshold, valueThreshold, and hueThreshold, allowed me to 'play' with many different combinations very easily until I found the right one.
 
-I found that having a perspective transform that included too much depth of road let to probelms detecting lines and fitting curvature.  Rather than hard code this for each image or video, I used a `Perspective()` class to generate different depths on the fly by scaling the top of the src_pts as needed.  I found that a reduction in depth of the src points by 20% helped with the `harder_challenge_video.mp4`.
+I found that having a perspective transform that was too far in the distance led to problems detecting lines and fitting curvature.  Rather than hard code this for each image or video, I used a `Perspective()` class to generate different distances on the fly by scaling the top of the src_pts as needed.  I found that a reduction in depth of the src points by 20% helped with the `harder_challenge_video.mp4`.
 
-I did not need to use the Line() class template suggested in the project notes or add filtering to perform reasonably well on the entire project video. However, if I was to extend this project to perform well on the two challenge videos, it would be very useful.
-It would be used to make sure the line detections are consitent inthe following ways. If one lane was not detected or it was detected but too different from it's last detected one, I could keep the old line, propagate it forward, or rebuild it from mirroring the other one. If I had the last line I could filter it to provide a less jumpy appearance on the road.  I could use the expected lane width to throw out bad detections. This would have been helpful with the `harder_challenge_video.mp4`.
+I did not need to use the `Line()` class template that were  suggested in the project notes, or add filtering to perform reasonably well on the entire project video. However, it would be useful if I were to extend this project to maximize performance on the two challenge videos.
+I would use the `Line()` class to make sure that the line detections are consitent in the following ways: 
+1. If one lane was not detected in the current frame but was detected in the previous frame, I would use the old detection
+2. If one lane was not detected in the current frame and not detected in the previous frame, I could rebuild it by duplicating the other lane.
+3. I could low pass filter the current frame lane line in order to avoid spurious detections and reduce jitter.
+4. I could use the expected lane width to test the current frame lane detection and rule out impossible lane widths. This problem is especially evident in the `harder_challenge_video.mp4`.
